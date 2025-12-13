@@ -7,7 +7,7 @@ def remove_duplicates():
     output_folder = os.path.join('data', 'processed')
     output_path = os.path.join(output_folder, 'data_nodup.csv')
 
-    print(f"--- Đang bắt đầu xử lý trùng lặp ---")
+    print(f"Đang bắt đầu xử lý trùng lặp")
     
     # 2. Kiểm tra file đầu vào
     if not os.path.exists(input_path):
@@ -30,7 +30,7 @@ def remove_duplicates():
         print(f"Phát hiện {duplicates_count} dòng trùng nội dung (khác Id). Đang loại bỏ...")
         df_clean = df.drop_duplicates(subset=cols_to_check, keep='first')
     else:
-        print("Không phát hiện dòng trùng lặp nào (dựa trên nội dung).")
+        print("Không phát hiện dòng trùng lặp nào.")
         df_clean = df
 
     # 5. Lưu kết quả

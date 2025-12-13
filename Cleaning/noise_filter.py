@@ -7,11 +7,11 @@ def handle_noise():
     output_folder = os.path.join('data', 'processed')
     output_path = os.path.join(output_folder, 'data_filled.csv')
 
-    print(f"--- Đang bắt đầu xử lý nhiễu (Missing Values) ---")
+    print(f"Đang xử lý Missing Values")
 
     # 2. Kiểm tra file đầu vào
     if not os.path.exists(input_path):
-        print(f"❌ Lỗi: Không tìm thấy file tại '{input_path}'")
+        print(f"Lỗi: Không tìm thấy file tại '{input_path}'")
         return
 
     df = pd.read_csv(input_path)
@@ -32,7 +32,7 @@ def handle_noise():
                       'KitchenQual', 'Functional', 'SaleType', 'Electrical']
 
     # 4. Thực hiện xử lý
-    print("Đang điền giá trị khuyết...")
+    print("Đang điền giá trị khuyết")
     
     # Fill None
     for col in cols_fill_none:
