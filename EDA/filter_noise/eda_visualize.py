@@ -64,7 +64,7 @@ def perform_eda():
     plt.savefig(os.path.join(output_folder, "3_pairplot.png"))
     plt.close()
 
-    print(f" Xong! 3 biểu đồ đã được lưu tại thư mục '{output_folder}'.")
+    print(f"3 biểu đồ đã được lưu tại thư mục '{output_folder}'.")
 
 if __name__ == "__main__":
     perform_eda()
