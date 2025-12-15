@@ -1,45 +1,70 @@
 import pandas as pd
 import os
 
-def remove_duplicates():
+def handle_outliers():
     # 1. Cấu hình đường dẫn
-    input_path = os.path.join('data', 'raw', 'test.csv')
+    # Đọc từ file đã điền Missing Values (kết quả của file code trước đó)
+    input_path = os.path.join('data', 'processed', 'filled_data.csv')
     output_folder = os.path.join('data', 'processed')
-    output_path = os.path.join(output_folder, 'data_nodup.csv')
+    output_path = os.path.join(output_folder, 'data_clean.csv')
 
-    print(f"Đang bắt đầu xử lý trùng lặp")
-    
+    print(f"Đang bắt đầu xử lý Nhiễu (Outliers)")
+
     # 2. Kiểm tra file đầu vào
     if not os.path.exists(input_path):
-        print(f"Lỗi: Không tìm thấy file tại '{input_path}'")
-        print("Hãy tạo thư mục 'data/raw' và bỏ file 'test.csv' vào đó.")
+        print(f"Lỗi: Không tìm thấy file '{input_path}'")
+        print("Cần chạy file xử lý Missing Values trước để tạo ra file này.")
         return
 
-    # 3. Đọc dữ liệu
     df = pd.read_csv(input_path)
-    print(f"Dữ liệu gốc: {df.shape[0]} dòng, {df.shape[1]} cột.")
+    print(f"Dữ liệu đầu vào: {df.shape}")
 
-    # 4. Xử lý trùng lặp
-    # Lấy danh sách cột để kiểm tra trùng (loại bỏ 'Id' vì Id luôn duy nhất)
-    cols_to_check = [c for c in df.columns if c != 'Id']
-    
-    # Kiểm tra trùng lặp dựa trên nội dung (bỏ qua Id)
-    duplicates_count = df.duplicated(subset=cols_to_check).sum()
-    
-    if duplicates_count > 0:
-        print(f"Phát hiện {duplicates_count} dòng trùng nội dung (khác Id). Đang loại bỏ...")
-        df_clean = df.drop_duplicates(subset=cols_to_check, keep='first')
-    else:
-        print("Không phát hiện dòng trùng lặp nào.")
-        df_clean = df
+    # 3. Chọn các cột số liên tục cần xử lý ngoại lai
+    # Lưu ý: Không nên xử lý trên tất cả các cột số, vì một số cột là mã hóa (ví dụ MSSubClass, OverallQual)
+    cols_to_process = [
+        'LotFrontage',  # Mặt tiền
+        'LotArea',      # Diện tích đất
+        'MasVnrArea',   # Diện tích ốp lát
+        'BsmtFinSF1',   # Diện tích hầm hoàn thiện
+        'TotalBsmtSF',  # Tổng diện tích hầm
+        '1stFlrSF',     # Diện tích tầng 1
+        'GrLivArea',    # Diện tích ở trên mặt đất
+        'GarageArea',   # Diện tích Gara
+        'MiscVal'       # Giá trị các tính năng phụ
+    ]
 
-    # 5. Lưu kết quả
-    # Tạo thư mục 'data/processed' nếu chưa có
+    count_changed = 0
+
+    # 4. Thực hiện Capping (Phương pháp IQR)
+    print("\nChi tiết xử lý từng cột:")
+    for col in cols_to_process:
+        if col in df.columns:
+            # Tính toán IQR
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            # Thiết lập biên (Dùng 3.0 * IQR để chỉ lọc những nhiễu cực đoan nhất)
+            # Nếu muốn lọc chặt hơn, hãy sửa 3.0 thành 1.5
+            lower_bound = Q1 - 3.0 * IQR
+            upper_bound = Q3 + 3.0 * IQR
+            
+            # Đếm số lượng ngoại lai trước khi xử lý
+            outliers_count = ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
+            
+            if outliers_count > 0:
+                print(f"   - Cột '{col}': Phát hiện {outliers_count} giá trị ngoại lai -> Đang ép về ngưỡng.")
+                # Dùng hàm clip để cắt ngọn (ép giá trị về biên trên/dưới)
+                df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
+                count_changed += 1
+
+    # 5. Lưu kết quả cuối cùng
     os.makedirs(output_folder, exist_ok=True)
+    df.to_csv(output_path, index=False)
     
-    df_clean.to_csv(output_path, index=False)
-    print(f"Đã lưu file kết quả tại: {output_path}")
-    print(f"Số dòng còn lại: {len(df_clean)}")
+    print(f"\n✅ Đã xử lý xong Outliers.")
+    print(f"📊 Đã can thiệp xử lý trên {count_changed} cột.")
+    print(f"💾 File sạch hoàn chỉnh được lưu tại: {output_path}")
 
 if __name__ == "__main__":
-    remove_duplicates()
+    handle_outliers()
