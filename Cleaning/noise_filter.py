@@ -1,69 +1,73 @@
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-def handle_outliers():
+def handle_outliers_manual():
     # 1. Cấu hình đường dẫn
-    # Đọc từ file đã điền Missing Values (kết quả của file code trước đó)
-    input_path = os.path.join('data', 'processed', 'data_nodup.csv')
+    # Đọc từ file đã xử lý Missing Values
+    input_path = os.path.join('data', 'processed', 'filled_data.csv')
     output_folder = os.path.join('data', 'processed')
     output_path = os.path.join(output_folder, 'data_clean.csv')
 
-    print(f"--- Đang bắt đầu xử lý Nhiễu (Outliers) ---")
+    print(f"--- Đang thực hiện xử lý Outlier thủ công (Manual Removal) ---")
 
-    # 2. Kiểm tra file đầu vào
     if not os.path.exists(input_path):
-        print(f"Lỗi: Không tìm thấy file '{input_path}'")
-        print("Cần chạy file xử lý remove_duplicate trước để tạo ra file này.")
+        print(f"❌ Lỗi: Không tìm thấy file '{input_path}'")
         return
 
     df = pd.read_csv(input_path)
-    print(f"Dữ liệu đầu vào: {df.shape}")
+    original_len = len(df)
+    print(f"Số lượng bản ghi ban đầu: {original_len}")
 
-    # 3. Chọn các cột số liên tục cần xử lý ngoại lai
-    # Lưu ý: Không nên xử lý trên tất cả các cột số, vì một số cột là mã hóa (ví dụ MSSubClass, OverallQual)
-    cols_to_process = [
-        'LotFrontage',  # Mặt tiền
-        'LotArea',      # Diện tích đất
-        'MasVnrArea',   # Diện tích ốp lát
-        'BsmtFinSF1',   # Diện tích hầm hoàn thiện
-        'TotalBsmtSF',  # Tổng diện tích hầm
-        '1stFlrSF',     # Diện tích tầng 1
-        'GrLivArea',    # Diện tích ở trên mặt đất
-        'GarageArea',   # Diện tích Gara
-        'MiscVal'       # Giá trị các tính năng phụ
-    ]
-
-    count_changed = 0
-
-    # 4. Thực hiện Capping (Phương pháp IQR)
-    print("\nChi tiết xử lý từng cột:")
-    for col in cols_to_process:
-        if col in df.columns:
-            # Tính toán IQR
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            
-            # Thiết lập biên (Dùng 3.0 * IQR để chỉ lọc những nhiễu cực đoan nhất)
-            lower_bound = Q1 - 3.0 * IQR
-            upper_bound = Q3 + 3.0 * IQR
-            
-            # Đếm số lượng ngoại lai trước khi xử lý
-            outliers_count = ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
-            
-            if outliers_count > 0:
-                print(f"   - Cột '{col}': Phát hiện {outliers_count} giá trị ngoại lai -> Đang ép về ngưỡng.")
-                # Dùng hàm clip để cắt ngọn (ép giá trị về biên trên/dưới)
-                df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
-                count_changed += 1
-
-    # 5. Lưu kết quả cuối cùng
-    os.makedirs(output_folder, exist_ok=True)
-    df.to_csv(output_path, index=False)
+    # =========================================================================
+    # QUAN TRỌNG: CHỈ XỬ LÝ TRÊN TẬP TRAIN (CÓ CỘT SalePrice)
+    # Tập Test chúng ta không được phép xóa dòng!
+    # =========================================================================
     
-    print(f"\nĐã xử lý xong Outliers.")
-    print(f"Đã can thiệp xử lý trên {count_changed} cột.")
-    print(f"File được lưu tại: {output_path}")
+    if 'SalePrice' in df.columns:
+        print("🔍 Phát hiện tập TRAIN -> Áp dụng luật loại bỏ Outlier của Ames Housing.")
+        
+        # 1. Vẽ biểu đồ trước khi xóa để thấy rõ 4 ngoại lai 2 tốt và 2 xấu
+        plt.figure(figsize=(10,6))
+        sns.scatterplot(data=df, x='GrLivArea', y='SalePrice')
+        plt.title("Trước khi xóa Outliers")
+        plt.show()
+
+        # 2. Định nghĩa Outlier theo tác giả Dean De Cock:
+        # "Những căn nhà có diện tích GrLivArea > 4000 nhưng SalePrice < 300,000"
+        # Đây là những trường hợp dị biệt (nhà rất to nhưng giá rẻ bất thường)
+        
+        outlier_condition = (df['GrLivArea'] > 4000) & (df['SalePrice'] < 300000)
+        num_outliers = outlier_condition.sum()
+        
+        print(f"👉 Phát hiện {num_outliers} căn nhà 'khổng lồ' nhưng giá rẻ (Nhiễu thực sự).")
+        
+        # 3. Thực hiện xóa
+        df_clean = df[~outlier_condition]
+        
+        # 4. Kiểm tra một số cột khác (Optional)
+        # Có thể lọc thêm các trường hợp GarageArea hoặc TotalBsmtSF quá lớn bất thường
+        # Nhưng GrLivArea là quan trọng nhất.
+        
+    else:
+        print("⚠️ Đây là tập TEST (không có SalePrice).")
+        print("👉 KHÔNG ĐƯỢC XÓA DÒNG. Sẽ giữ nguyên dữ liệu.")
+        # Đối với tập test, nếu có giá trị quá lớn gây lỗi, ta chỉ nên Clip nhẹ
+        # Ví dụ: Clip GrLivArea về 5000 (nếu có cái nào to hơn thế) để tránh lỗi tính toán
+        # Nhưng thường thì để nguyên cũng được.
+        df_clean = df
+
+    # =========================================================================
+    
+    # Lưu kết quả
+    rows_removed = original_len - len(df_clean)
+    print(f"✅ Đã loại bỏ: {rows_removed} dòng.")
+    print(f"📉 Số lượng bản ghi còn lại: {len(df_clean)}")
+    
+    os.makedirs(output_folder, exist_ok=True)
+    df_clean.to_csv(output_path, index=False)
+    print(f"💾 File sạch được lưu tại: {output_path}")
 
 if __name__ == "__main__":
-    handle_outliers()
+    handle_outliers_manual()
