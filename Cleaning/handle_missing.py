@@ -173,8 +173,3 @@ def handle_missing(df):
     eval_cv = compute_lotfrontage_r2(df)
     df = hybrid_fill_lotfrontage(df, eval_cv, r2_threshold=0.5)
     return df
-
-if __name__ == "__main__":
-    df_cleaned = handle_missing(df)
-    print(df_cleaned.isnull().sum())
-    df_cleaned.to_csv("data/processed/filled_data.csv", index=False)
