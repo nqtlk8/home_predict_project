@@ -1,3 +1,4 @@
+
 # Remove duplicate rows based on all columns
 def remove_duplicate_rows(df):
     initial_shape = df.shape
